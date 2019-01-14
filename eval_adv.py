@@ -164,7 +164,7 @@ mpl.rcParams['axes.titleweight'] = 'bold'
 # erase eval_adv.py and checkout again to get the updated Dollar Sign Id tag
 #
 # the SHA is the BLOB sha, not the commit SHA :-(
-PROJECT_GIT_SHA = "$Id: 35b7b513f1fce7cb44b1de98eee00d5378eec97f $ \n\n"
+PROJECT_GIT_SHA = "$Id: 77b2b2e2f444bc1a55d651f6e0aafc3e962284f4 $ \n\n"
 
 # use git rev-list --count HEAD > eval_adv_version.txt
 # to get commit count for the version number
@@ -3857,46 +3857,45 @@ def evaluate_advertising(*args):
                      + file_stem
                      + "_pie_charts.jpg")
 
-    # show empirical sales distributions
-    fig_dist = plt.figure(figsize=(12, 9))
-    plt.errorbar(x_no_adv, dist_h_no_adv.ravel(),
-                 yerr=y_err_no_adv.ravel(),
-                 fmt=NO_ADV_MARKER,
-                 label='NO ADVERTISING',
-                 linewidth=LINEWIDTH, markersize=MARKERSIZE)
-    plt.errorbar(x_adv, dist_h_adv.ravel(),
-                 yerr=y_err_adv.ravel(),
-                 fmt=ADV_MARKER,
-                 label='ADVERTISING',
-                 linewidth=LINEWIDTH, markersize=MARKERSIZE)
+    fig_bar, ax_bar  = plt.subplots(figsize=(12,9))
+    n_groups = max(len(x_adv), len(x_no_adv))
+    
+    index = np.arange(n_groups)
+    bar_width = 0.35
+    opacity = 0.8
 
-    if _settings.detail_level > 0:
-        plt.plot(x_no_adv_line, y_fit_no_adv_line,
-                 NO_ADV_LINE,
-                 label='NO ADV FIT', linewidth=LINEWIDTH)
+    try:
+        index_no_adv = np.arange(len(x_no_adv))
+        rects1 = plt.bar(index_no_adv,
+                         dist_h_no_adv.ravel(),
+                         bar_width,
+                         alpha=opacity,
+                         color='b',
+                         label='NO ADVERTISING')
+    except Exception as bar_X:
+        print(debug_prefix(), "caught exception", bar_X)
+        raise()
 
-        plt.plot(x_adv_line, y_fit_adv_line,
-                 ADV_LINE,
-                 label='ADV FIT', linewidth=LINEWIDTH)
-
-    plt.title('ESTIMATED PROBABILITY OF A NUMBER OF SALES PER DAY')
-    plt.xlabel('NUMBER OF UNIT SALES PER DAY')
-    plt.ylabel('FRACTION OF DAYS WITH THE NUMBER OF DAILY SALES')
-    plt.legend(loc='upper right')
-    if _settings.detail_level > 0:
-        xlo, xhi = plt.xlim()
-        delta_x = xhi - xlo
-        ylo, yhi = plt.ylim()
-        delta_y = yhi - ylo
-        # add coefficients of determination from fits
-        plt.text(xlo + delta_x*0.025,
-                 yhi - 0.05*delta_y,
-                 'NO ADV R**2: %3.2f' % r2_no_adv)
-        plt.text(xlo + 0.025*delta_x,
-                 yhi - 0.09*delta_y,
-                 'ADV R**2: %3.2f' % r2_adv)
-
-    plt.grid()
+    try:
+        index_adv = np.arange(len(x_adv))
+        rects2 = plt.bar(index_adv + bar_width,
+                         dist_h_adv.ravel(),
+                         bar_width,
+                         alpha=opacity,
+                         color='g',
+                         label='ADVERTISING')
+    except Exception as bar_X:
+        print(debug_prefix(), "caught exception", bar_X)
+        raise()
+ 
+    plt.xlabel('UNIT SALES PER DAY')
+    plt.ylabel('FRACTION OF DAYS')
+    plt.title('UNIT SALES PER DAY BAR CHART')
+    bar_labels = [str(item) for item in range(n_groups+1)]
+    plt.xticks(index + bar_width, bar_labels)
+    plt.legend()
+ 
+    plt.tight_layout()
     if _settings.block:
         plt.show()
     else:
@@ -3904,10 +3903,64 @@ def evaluate_advertising(*args):
         plt.show()
         plt.pause(plot_duration_secs)
 
-    fig_dist.savefig(output_folder
+    # save bar charts to jpeg image
+    fig_bar.savefig(output_folder
                      + os.sep
                      + file_stem
-                     + "_empirical_distributions.jpg")
+                     + "_bar_charts.jpg")
+
+    if _settings.detail_level > 0:
+        # show empirical sales distributions
+        fig_dist = plt.figure(figsize=(12, 9))
+        plt.errorbar(x_no_adv, dist_h_no_adv.ravel(),
+                     yerr=y_err_no_adv.ravel(),
+                     fmt=NO_ADV_MARKER,
+                     label='NO ADVERTISING',
+                     linewidth=LINEWIDTH, markersize=MARKERSIZE)
+        plt.errorbar(x_adv, dist_h_adv.ravel(),
+                     yerr=y_err_adv.ravel(),
+                     fmt=ADV_MARKER,
+                     label='ADVERTISING',
+                     linewidth=LINEWIDTH, markersize=MARKERSIZE)
+
+        if _settings.detail_level > 1:
+            plt.plot(x_no_adv_line, y_fit_no_adv_line,
+                     NO_ADV_LINE,
+                     label='NO ADV FIT', linewidth=LINEWIDTH)
+
+            plt.plot(x_adv_line, y_fit_adv_line,
+                     ADV_LINE,
+                     label='ADV FIT', linewidth=LINEWIDTH)
+
+        plt.title('ESTIMATED PROBABILITY OF A NUMBER OF SALES PER DAY')
+        plt.xlabel('NUMBER OF UNIT SALES PER DAY')
+        plt.ylabel('FRACTION OF DAYS WITH THE NUMBER OF DAILY SALES')
+        plt.legend(loc='upper right')
+        if _settings.detail_level > 1:
+            xlo, xhi = plt.xlim()
+            delta_x = xhi - xlo
+            ylo, yhi = plt.ylim()
+            delta_y = yhi - ylo
+            # add coefficients of determination from fits
+            plt.text(xlo + delta_x*0.025,
+                     yhi - 0.05*delta_y,
+                     'NO ADV R**2: %3.2f' % r2_no_adv)
+            plt.text(xlo + 0.025*delta_x,
+                     yhi - 0.09*delta_y,
+                     'ADV R**2: %3.2f' % r2_adv)
+
+        plt.grid()
+        if _settings.block:
+            plt.show()
+        else:
+            plt.ion()
+            plt.show()
+            plt.pause(plot_duration_secs)
+
+        fig_dist.savefig(output_folder
+                         + os.sep
+                         + file_stem
+                         + "_empirical_distributions.jpg")
 
     # simulate future year sales with and without adv
 
