@@ -164,7 +164,7 @@ mpl.rcParams['axes.titleweight'] = 'bold'
 # erase eval_adv.py and checkout again to get the updated Dollar Sign Id tag
 #
 # the SHA is the BLOB sha, not the commit SHA :-(
-PROJECT_GIT_SHA = "$Id: 77b2b2e2f444bc1a55d651f6e0aafc3e962284f4 $ \n\n"
+PROJECT_GIT_SHA = "$Id: 047127d4302b3030132beba0e99dd9a44e7e1a6f $ \n\n"
 
 # use git rev-list --count HEAD > eval_adv_version.txt
 # to get commit count for the version number
@@ -180,7 +180,8 @@ ADV_MARKER = 'gP'  # green filled plus sign
 NO_ADV_LINE = 'b--'   # blue dashed line
 ADV_LINE = 'g--'      # green dashed line
 
-PROFIT_CHANGE_COLOR = 'k'  # black
+PROFIT_LINEWIDTH = 10
+PROFIT_CHANGE_COLOR = 'r'  # k for black
 
 LINEWIDTH = 3
 MARKERSIZE = 10
@@ -212,6 +213,7 @@ ADV_START_DATE = '03/31/2018'
 MONTHS_PER_YEAR = 12
 ANNUAL_ADV_EXPENSE = 500.0 * MONTHS_PER_YEAR  # annual advertising cost
 BLOCK_DEFAULT = False
+BINS_DEFAULT = 20  # was 50
 
 SEED_VAL = 113  # default random number seed
 INPUT_FILE = 'sales.csv'  # sales report from QuickBooks
@@ -430,7 +432,8 @@ AdEvaluatorSettings = namedtuple('AdEvaluatorSettings',
                                  'sales_type_value '
                                  'unit_cost '
                                  'block '
-                                 'layers')
+                                 'layers '
+                                 'bins')
 
 def save_settings():
     """
@@ -471,7 +474,8 @@ def reset():
                                     SALES_TYPE_VALUE_DEFAULT,
                                     UNIT_COST_DEFAULT,
                                     BLOCK_DEFAULT,
-                                    LAYERS_DEFAULT)
+                                    LAYERS_DEFAULT,
+                                    BINS_DEFAULT)
 
     # end reset()
 
@@ -1005,7 +1009,8 @@ def plot_ave_hist(ave_sales_increase_diff,
     fig_ave_hist = plt.figure(figsize=(12, 9))
     bin_values, \
         bin_edges, \
-        patches = plt.hist(ave_sales_increase_diff)
+        patches = plt.hist(ave_sales_increase_diff,
+                           bins=_settings.bins)
     plt.title(title_str)
     plt.xlabel('DOLLARS')
     plt.ylabel('NUMBER OF SIMULATIONS')
@@ -1048,7 +1053,10 @@ def plot_diff_risk(profit_edges_no_adv,
                    seed_val,
                    plot_duration_secs,
                    output_folder,
-                   suffix=''):
+                   suffix='',
+                   show_no_adv=True,
+                   show_with_adv=True,
+                   show_ave_with_adv=True):
     """
     plot overlay of profit projections with
     and without advertising
@@ -1063,36 +1071,85 @@ def plot_diff_risk(profit_edges_no_adv,
     parts = base_file_name.split('.')
     file_stem = parts[0]
 
+    if show_no_adv and show_with_adv and show_ave_with_adv:
+        suffix = ''
+    else:
+        # build suffix for each layer image
+        # layers for animations
+        if show_no_adv:
+            suffix += "_no_adv"
+        if show_with_adv:
+            suffix += "_with_adv"
+        if show_ave_with_adv:
+            suffix += +"_ave"
+
     # main sales and profit projections plot/figure
     fig_projections = plt.figure(figsize=(12, 9))
 
-    plt.plot((profit_edges_no_adv[1:]+profit_edges_no_adv[:-1])/2.0, \
-             100.0*profit_bins_no_adv/number_sims, \
-             NO_ADV_MARKER,
-             label='PROFIT CHANGE NO ADVERTISING',
-             linewidth=LINEWIDTH, markersize=MARKERSIZE)
+    if False:
+        plt.plot((profit_edges_no_adv[1:]+profit_edges_no_adv[:-1])/2.0, \
+                 100.0*profit_bins_no_adv/number_sims, \
+                 NO_ADV_MARKER,
+                 label='PROFIT CHANGE NO ADVERTISING',
+                 linewidth=LINEWIDTH, markersize=MARKERSIZE)
 
-    plt.plot((profit_edges_adv[1:]+profit_edges_adv[:-1])/2.0, \
-             100.0*profit_bins_adv/number_sims, \
-             ADV_MARKER,
-             label='PROFIT CHANGE WITH ADVERTISING',
-             linewidth=LINEWIDTH, markersize=MARKERSIZE)
+        plt.plot((profit_edges_adv[1:]+profit_edges_adv[:-1])/2.0, \
+                 100.0*profit_bins_adv/number_sims, \
+                 ADV_MARKER,
+                 label='PROFIT CHANGE WITH ADVERTISING',
+                 linewidth=LINEWIDTH, markersize=MARKERSIZE)
+    else:
+        bar_width = (profit_edges_no_adv[1]
+                     - profit_edges_no_adv[0])/2.0
+        opacity = 0.8
+
+        if show_no_adv:
+            plt.bar((profit_edges_no_adv[1:]
+                     +profit_edges_no_adv[:-1])/2.0,
+                    100.0*profit_bins_no_adv/number_sims,
+                    bar_width,
+                    alpha=opacity,
+                    color='b',
+                    label='PROFIT CHANGE NO ADVERTISING')
+        
+            
+        if show_with_adv:
+            plt.bar(bar_width + (profit_edges_adv[1:]
+                                 + profit_edges_adv[:-1])/2.0,
+                    100.0*profit_bins_adv/number_sims,
+                    bar_width,
+                    alpha=opacity,
+                    color='g',
+                    label='PROFIT CHANGE WITH ADVERTISING')
+        else:
+            # suppress the with advertising bars
+            # but keep same horizontal axis
+            dummy_bins = np.zeros(profit_bins_adv.shape)
+            plt.bar(bar_width + (profit_edges_adv[1:]
+                                 + profit_edges_adv[:-1])/2.0,
+                    100.0*dummy_bins/number_sims,
+                    bar_width,
+                    alpha=opacity,
+                    color='g',
+                    label='PROFIT CHANGE WITH ADVERTISING')
+            
 
     xlow, xhi = plt.xlim()
     delta_x = (xhi - xlow)
     ylow, yhi = plt.ylim()
     delta_y = (yhi - ylow)
     offset = 0.045
-    # add horizontal line
-    plt.axvline(expected_profit_increase,
-                ymin=ylow, ymax=yhi,
-                linewidth=LINEWIDTH,
-                color=PROFIT_CHANGE_COLOR,
-                label='EXPECTED PROFIT FROM ADVERTISING')
+    if show_ave_with_adv:
+        # add vertical line
+        plt.axvline(expected_profit_increase,
+                    ymin=ylow, ymax=yhi,
+                    linewidth=PROFIT_LINEWIDTH,
+                    color=PROFIT_CHANGE_COLOR,
+                    label='EXPECTED PROFIT FROM ADVERTISING')
 
     plt.grid()
     plt.title('FULL YEAR PROJECTIONS ('
-              + str(number_sims)
+              + format(number_sims, ',d')
               + ' SIMULATIONS)  FROM: '
               + os.path.basename(input_file))
     plt.xlabel('ANNUAL PROFIT CHANGE (DOLLARS)')
@@ -1129,7 +1186,7 @@ def plot_diff_risk(profit_edges_no_adv,
                  + suffix + ".jpg"
     print("saving sales projection figure to", image_file)
     fig_projections.savefig(output_folder + os.sep + image_file)
-
+    # END plot_diff_risk(...)  MAIN PLOT
 
 
 def plot_projections(sales_edges,
@@ -3045,7 +3102,7 @@ def sim_adv_period(daily_sales_np,
         # from simulations
         f_tstat = plt.figure(figsize=(12, 9))
         welch_t_bins, welch_t_edges, patches \
-            = plt.hist(thist, bins=50)
+            = plt.hist(thist, bins=_settings.bins)
         plt.title("Welch's t statistic is a measure of the difference between the two periods")
         plt.xlabel("WELCH'S T STATISTIC (0.0 MEANS THE TWO PERIODS ARE VERY SIMILAR)")
         plt.ylabel('NUMBER OF SIMULATIONS')
@@ -3070,14 +3127,15 @@ def sim_adv_period(daily_sales_np,
                         + file_stem + '_welch_t_stat_hist.jpg')
 
     else:
-        welch_t_bins, welch_t_edges = np.histogram(thist, bins=50)
+        welch_t_bins, welch_t_edges = np.histogram(thist,
+                                                   bins=_settings.bins)
 
     if _settings.detail_level > 1:
         # display histogram of p-values from Welch t statistic
         # from simulations
         f_pval = plt.figure(figsize=(12, 9))
         welch_pval_bins, welch_pval_edges, patches \
-            = plt.hist(pval_hist, bins=50)
+            = plt.hist(pval_hist, bins=_settings.bins)
         plt.title("HISTOGRAM OF THE P-VALUE DERIVED FROM WELCH'S T STAT")
         plt.xlabel('P VALUE IS AN *ESTIMATE* OF THE PROBABILITY TWO PERIODS SAME')
         plt.ylabel('NUMBER OF SIMULATIONS')
@@ -3093,7 +3151,9 @@ def sim_adv_period(daily_sales_np,
                        + file_stem + '_welch_p_value_hist.jpg')
 
     else:
-        welch_pval_bins, welch_pval_edges = np.histogram(pval_hist, bins=60)
+        welch_pval_bins, \
+        welch_pval_edges = np.histogram(pval_hist,
+                                        bins=_settings.bins)
 
     return welch_t_bins, welch_t_edges  # sim_adv_period(...)
 
@@ -3859,7 +3919,7 @@ def evaluate_advertising(*args):
 
     fig_bar, ax_bar  = plt.subplots(figsize=(12,9))
     n_groups = max(len(x_adv), len(x_no_adv))
-    
+
     index = np.arange(n_groups)
     bar_width = 0.35
     opacity = 0.8
@@ -3887,14 +3947,14 @@ def evaluate_advertising(*args):
     except Exception as bar_X:
         print(debug_prefix(), "caught exception", bar_X)
         raise()
- 
+
     plt.xlabel('UNIT SALES PER DAY')
     plt.ylabel('FRACTION OF DAYS')
     plt.title('UNIT SALES PER DAY BAR CHART')
     bar_labels = [str(item) for item in range(n_groups+1)]
     plt.xticks(index + bar_width, bar_labels)
     plt.legend()
- 
+
     plt.tight_layout()
     if _settings.block:
         plt.show()
@@ -4055,11 +4115,11 @@ def evaluate_advertising(*args):
     # function for sales for two periods
 
     bins_no_adv, edges_no_adv = np.histogram(ave_sales_no_adv,
-                                             bins=50,
+                                             bins=_settings.bins,
                                              range=(low_sales, hi_sales),
                                              density=True)
     bins_adv, edges_adv = np.histogram(ave_sales_adv,
-                                       bins=50,
+                                       bins=_settings.bins,
                                        range=(low_sales, hi_sales),
                                        density=True)
 
@@ -4147,7 +4207,7 @@ def evaluate_advertising(*args):
     if _settings.detail_level > 0:
         fig_no_adv = plt.figure(figsize=(12, 9))
         sales_bins, sales_edges, patches \
-            = plt.hist(annual_sales_no_adv, bins=50)
+            = plt.hist(annual_sales_no_adv, bins=_settings.bins)
         plt.title('ANNUAL SALES WITH NO ADVERTISING')
         plt.ylabel('NUMBER OF SIMULATIONS')
         plt.xlabel('DOLLARS')
@@ -4172,7 +4232,8 @@ def evaluate_advertising(*args):
         fig_no_adv.savefig(output_folder + os.sep + image_file)
     else:
         sales_bins, sales_edges \
-            = np.histogram(annual_sales_no_adv, bins=50)
+            = np.histogram(annual_sales_no_adv,
+                           bins=_settings.bins)
 
     # show sales/profit projections for year with advertising
 
@@ -4181,7 +4242,7 @@ def evaluate_advertising(*args):
     if _settings.detail_level > 0:
         fig_adv = plt.figure(figsize=(12, 9))
         sales_bins, sales_edges, patches \
-            = plt.hist(annual_sales_adv, bins=50)
+            = plt.hist(annual_sales_adv, bins=_settings.bins)
         n_loss_sales_adv = compute_loss(sales_bins, sales_edges)
         plt.title('ANNUAL SALES WITH ADVERTISING')
         plt.ylabel('NUMBER OF SIMULATIONS')
@@ -4206,7 +4267,8 @@ def evaluate_advertising(*args):
         fig_adv.savefig(output_folder + os.sep + image_file)
     else:
         sales_bins, sales_edges \
-            = np.histogram(annual_sales_adv, bins=50)
+            = np.histogram(annual_sales_adv,
+                           bins=_settings.bins)
 
     ave_profit_increase = ave_sales_increase - annual_adv_expense
     # deduct marginal cost of new units sold
@@ -4217,7 +4279,7 @@ def evaluate_advertising(*args):
     if _settings.detail_level > 0:
         figure_2 = plt.figure(figsize=(12, 9))
         sales_bins, sales_edges, patches \
-            = plt.hist(ave_sales_increase, bins=50)
+            = plt.hist(ave_sales_increase, bins=_settings.bins)
         n_loss_sales = compute_loss(sales_bins, sales_edges)
         plt.title('ANNUAL SALES INCREASE FROM ADVERTISING (' \
                   + str(number_sims) + ' SIMULATIONS)')
@@ -4248,7 +4310,8 @@ def evaluate_advertising(*args):
             # wait to display the figure
             plt.pause(plot_duration_secs)
     else:
-        sales_bins, sales_edges = np.histogram(ave_sales_increase, bins=50)
+        sales_bins, sales_edges = np.histogram(ave_sales_increase,
+                                               bins=_settings.bins)
         n_loss_sales = compute_loss(sales_bins, sales_edges)
 
 
@@ -4256,7 +4319,7 @@ def evaluate_advertising(*args):
     if _settings.detail_level > 0:
         figure_2b = plt.figure(figsize=(12, 9))
         daily_sales_bins, daily_sales_edges, patches \
-            = plt.hist(ave_sales_increase/DAYS_PER_YEAR, bins=50)
+            = plt.hist(ave_sales_increase/DAYS_PER_YEAR, bins=_settings.bins)
         n_loss_daily_sales = compute_loss(daily_sales_bins, daily_sales_edges)
 
         plt.title('DAILY SALES INCREASE FROM ADVERTISING (' \
@@ -4288,12 +4351,14 @@ def evaluate_advertising(*args):
             plt.show()
     else:
         daily_sales_bins, daily_sales_edges \
-            = np.histogram(ave_sales_increase/DAYS_PER_YEAR, bins=50)
+            = np.histogram(ave_sales_increase/DAYS_PER_YEAR,
+                           bins=_settings.bins)
         n_loss_daily_sales = compute_loss(daily_sales_bins, daily_sales_edges)
 
     if _settings.detail_level > 0:
         figure_3 = plt.figure(figsize=(12, 9))
-        profit_bins, profit_edges, patches = plt.hist(ave_profit_increase, bins=50)
+        profit_bins, profit_edges, patches = plt.hist(ave_profit_increase,
+                                                      bins=_settings.bins)
         n_loss_profits = compute_loss(profit_bins, profit_edges)
         plt.title('ANNUAL PROFIT INCREASE FROM ADVERTISING (' \
                   + str(number_sims) + ' SIMULATIONS)')
@@ -4323,7 +4388,7 @@ def evaluate_advertising(*args):
             plt.pause(plot_duration_secs)  # profit projections histogram
     else:
         profit_bins, profit_edges = np.histogram(ave_profit_increase,
-                                                 bins=50)
+                                                 bins=_settings.bins)
         n_loss_profits = compute_loss(profit_bins, profit_edges)
 
     if _settings.detail_level > 0:
@@ -4345,13 +4410,13 @@ def evaluate_advertising(*args):
 
     sales_bins_diff, \
         sales_edges_diff = np.histogram(ave_sales_increase_diff,
-                                        bins=50)
+                                        bins=_settings.bins)
     n_loss_sales_diff = compute_loss(sales_bins_diff,
                                      sales_edges_diff)
 
     profit_bins_diff, \
         profit_edges_diff = np.histogram(ave_profit_increase_diff,
-                                         bins=50)
+                                         bins=_settings.bins)
     n_loss_profit_diff = compute_loss(profit_bins_diff,
                                       profit_edges_diff)
 
@@ -4371,7 +4436,45 @@ def evaluate_advertising(*args):
                          output_folder,
                          suffix="_no_adv")
 
-    # plot profit projections for no advertising case
+    if _settings.layers:
+        plot_diff_risk(profit_edges_diff,
+                       profit_bins_diff,
+                       profit_edges,
+                       profit_bins,
+                       number_sims,
+                       input_file,
+                       expected_profit_increase,
+                       0.0,  # no advertising expense
+                       n_loss_sales_diff,
+                       n_loss_profit_diff,
+                       seed_val,
+                       plot_duration_secs,
+                       output_folder,
+                       suffix="_diff",
+                       show_no_adv=True,
+                       show_with_adv=False,
+                       show_ave_with_adv=False)
+
+        plot_diff_risk(profit_edges_diff,
+                       profit_bins_diff,
+                       profit_edges,
+                       profit_bins,
+                       number_sims,
+                       input_file,
+                       expected_profit_increase,
+                       0.0,  # no advertising expense
+                       n_loss_sales_diff,
+                       n_loss_profit_diff,
+                       seed_val,
+                       plot_duration_secs,
+                       output_folder,
+                       suffix="_diff",
+                       show_no_adv=True,
+                       show_with_adv=True,
+                       show_ave_with_adv=False)
+
+    # MAIN PLOT
+    # plot profit projections for no advertising vs advertising case
     plot_diff_risk(profit_edges_diff,
                    profit_bins_diff,
                    profit_edges,
