@@ -60,6 +60,8 @@ from collections import namedtuple
 
 ANACONDA_DOWNLOAD_URL = 'http://www.anaconda.com/download/'
 
+# test comment for $make github (update github project)
+
 # get Python version
 try:
     version_str = platform.python_version()
@@ -164,7 +166,7 @@ mpl.rcParams['axes.titleweight'] = 'bold'
 # erase eval_adv.py and checkout again to get the updated Dollar Sign Id tag
 #
 # the SHA is the BLOB sha, not the commit SHA :-(
-PROJECT_GIT_SHA = "$Id: 047127d4302b3030132beba0e99dd9a44e7e1a6f $ \n\n"
+PROJECT_GIT_SHA = "$Id: 333c68e517778c67a5fc26ccdc16af9b7a21c713 $ \n\n"
 
 # use git rev-list --count HEAD > eval_adv_version.txt
 # to get commit count for the version number
